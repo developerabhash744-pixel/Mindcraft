@@ -9,6 +9,8 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 360   # ⏱️ HARD LIMIT = 6 HOURS
+    
 
     steps:
       - name: Checkout
