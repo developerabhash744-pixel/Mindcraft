@@ -1,0 +1,67 @@
+name: mindcraft-run
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Hardcoded placeholder (NO REAL KEY). Replace later with a secret.
+      - name: Write keys.json (placeholder)
+        shell: bash
+        run: |
+          cat > keys.json <<'JSON'
+          {
+            "OPENROUTER_API_KEY": "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"
+          }
+          JSON
+
+      # Patch settings.js to point to your Aternos server
+      - name: Configure server host/port
+        shell: bash
+        run: |
+          # Update host
+          if grep -qE 'host:\s*' settings.js; then
+            sed -i 's/host:\s*\"[^\"]*\"/host: "abhash12abhash.aternos.me"/' settings.js
+          fi
+
+          # Update port
+          if grep -qE 'port:\s*[0-9]+' settings.js; then
+            sed -i 's/port:\s*[0-9]\+/port: 20197/' settings.js
+          fi
+
+          echo "=== settings.js (sanity) ==="
+          grep -nE 'host:|port:' settings.js || true
+
+      # Run a finite task so CI completes (change task_id to what you want)
+      - name: Run Mindcraft (finite task)
+        shell: bash
+        run: |
+          node main.js --task_path tasks/basic/single_agent.json --task_id gather_oak_logs
+
+      - name: Upload logs (if present)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindcraft-logs
+          path: |
+            *.log
+            logs/**
+          if-no-files-found: ignore
