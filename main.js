@@ -38,11 +38,22 @@ if (args.task_path) {
 }
 
 // these environment variables override certain settings
+if (process.env.MINECRAFT_HOST) {
+    settings.host = process.env.MINECRAFT_HOST;
+}
 if (process.env.MINECRAFT_PORT) {
     settings.port = process.env.MINECRAFT_PORT;
 }
+if (process.env.PORT) {
+    settings.mindserver_port = process.env.PORT;
+}
 if (process.env.MINDSERVER_PORT) {
     settings.mindserver_port = process.env.MINDSERVER_PORT;
+}
+if (process.env.AUTO_OPEN_UI !== undefined) {
+    settings.auto_open_ui = process.env.AUTO_OPEN_UI === 'true';
+} else if (process.env.RENDER || process.env.PORT) {
+    settings.auto_open_ui = false;
 }
 if (process.env.PROFILES && JSON.parse(process.env.PROFILES).length > 0) {
     settings.profiles = JSON.parse(process.env.PROFILES);
