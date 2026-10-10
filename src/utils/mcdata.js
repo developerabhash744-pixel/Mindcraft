@@ -171,8 +171,13 @@ export function initBot(username) {
         if (Date.now() - lastMovementPacketTime >= 45) {
             lastMovementPacketTime = Date.now();
             try {
-                bot._client.write('flying', { onGround: bot.entity?.onGround ?? true });
-            } catch (_) {}
+                const onGround = Boolean(bot.entity?.onGround ?? true);
+                bot._client.write('flying', { onGround, flags: { onGround } });
+            } catch (_) {
+                try {
+                    bot._client.write('flying', { onGround: true });
+                } catch (_) {}
+            }
         }
 
         // Send tick_end for modern Minecraft (1.21.2+ / GrimAC / Paper sync)

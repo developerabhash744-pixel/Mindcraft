@@ -46,20 +46,38 @@ export class Gemini {
             });
         }
 
-        const result = await this.genAI.models.generateContent({
-            model: this.model_name || "gemini-2.5-flash",
-            contents: contents,
-            safetySettings: this.safetySettings,
-            config: {
-                systemInstruction: systemMessage,
-                ...(this.params || {})
+        const modelsToTry = [
+            this.model_name || "gemini-2.5-flash",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash"
+        ].filter((v, i, a) => a.indexOf(v) === i);
+
+        let lastErr = null;
+        for (const model of modelsToTry) {
+            try {
+                const result = await this.genAI.models.generateContent({
+                    model: model,
+                    contents: contents,
+                    safetySettings: this.safetySettings,
+                    config: {
+                        systemInstruction: systemMessage,
+                        ...(this.params || {})
+                    }
+                });
+                const response = await result.text;
+                console.log(`Received from ${model}.`);
+                return response;
+            } catch (err) {
+                lastErr = err;
+                if (String(err?.message || err).includes('429') || String(err?.message || err).includes('RESOURCE_EXHAUSTED')) {
+                    console.warn(`Model ${model} hit 429 quota, trying fallback model...`);
+                    continue;
+                }
+                throw err;
             }
-        });
-        const response = await result.text;
-
-        console.log('Received.');
-
-        return response;
+        }
+        throw lastErr;
     }
 
     async sendVisionRequest(turns, systemMessage, imageBuffer) {
