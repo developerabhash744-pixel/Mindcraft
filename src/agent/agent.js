@@ -70,9 +70,14 @@ export class Agent {
             if (this._disconnectHandled) return;
             this._disconnectHandled = true;
 
+            console.error(`[AGENT DISCONNECT] Type: ${type}, Reason:`, typeof reason === 'object' ? JSON.stringify(reason) : reason);
+            if (this.bot && typeof this.bot.getRecentOutPackets === 'function') {
+                console.error('[LAST RECENT PACKETS]:', JSON.stringify(this.bot.getRecentOutPackets(), null, 2));
+            }
+
             // Log and Analyze
             // handleDisconnection handles logging to console and server
-            const { type } = handleDisconnection(this.name, reason);
+            handleDisconnection(this.name, reason);
      
             process.exit(1);
         };
@@ -529,7 +534,9 @@ export class Agent {
 
     cleanKill(msg='Killing agent process...', code=1) {
         this.history.add('system', msg);
-        this.bot.chat(code > 1 ? 'Restarting.': 'Exiting.');
+        if (this.bot?._client?.socket?.writable) {
+            try { this.bot.chat(code > 1 ? 'Restarting.': 'Exiting.'); } catch (_) {}
+        }
         this.history.save();
         process.exit(code);
     }

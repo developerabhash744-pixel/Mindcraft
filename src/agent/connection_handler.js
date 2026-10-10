@@ -50,11 +50,23 @@ export const log = (agentName, msg) => {
 export function parseKickReason(reason) {
     if (!reason) return { type: 'unknown', msg: 'Unknown reason (Empty)', isFatal: true };
     
-    const raw = (typeof reason === 'string' ? reason : JSON.stringify(reason)).toLowerCase();
+    let raw = '';
+    if (typeof reason === 'string') {
+        raw = reason;
+    } else if (reason && typeof reason.toString === 'function' && reason.toString() !== '[object Object]') {
+        raw = reason.toString();
+    } else {
+        try {
+            raw = JSON.stringify(reason);
+        } catch (_) {
+            raw = String(reason);
+        }
+    }
+    const rawLower = raw.toLowerCase();
 
     // Search for keywords in definitions
     for (const [type, def] of Object.entries(ERROR_DEFINITIONS)) {
-        if (def.keywords.some(k => raw.includes(k))) {
+        if (def.keywords.some(k => rawLower.includes(k))) {
             console.error(`Disconnected: ${raw}`);
             return { type, msg: def.msg, isFatal: def.isFatal };
         }
@@ -65,6 +77,9 @@ export function parseKickReason(reason) {
     try {
         const obj = typeof reason === 'string' ? JSON.parse(reason) : reason;
         fallback = obj.translate || obj.text || (obj.value?.translate) || raw;
+        if (typeof fallback === 'object') {
+            fallback = JSON.stringify(fallback);
+        }
     } catch (_) {}
     
     return { type: 'other', msg: `Disconnected: ${fallback}`, isFatal: true };

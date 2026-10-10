@@ -70,9 +70,17 @@ export function initBot(username) {
     // Sanitize move packets to avoid kicks on Paper/Spigot servers
     // Paper throws "Invalid player move packet received" if pitch is outside [-90, 90],
     // if coordinates/rotations are NaN/Infinite, or if packets are delayed/dropped.
+    const recentOutPackets = [];
+    bot.getRecentOutPackets = () => recentOutPackets;
+
     const originalWrite = bot._client.write.bind(bot._client);
     bot._client.write = function(name, data) {
         if (data && typeof data === 'object') {
+            if (name.includes('position') || name.includes('look') || name.includes('move') || name.includes('flying') || name.includes('teleport')) {
+                recentOutPackets.push({ name, data: JSON.parse(JSON.stringify(data)), time: Date.now() });
+                if (recentOutPackets.length > 10) recentOutPackets.shift();
+            }
+
             if (typeof data.x === 'number' && !isFinite(data.x)) data.x = 0;
             if (typeof data.y === 'number' && !isFinite(data.y)) data.y = 0;
             if (typeof data.z === 'number' && !isFinite(data.z)) data.z = 0;
@@ -94,6 +102,12 @@ export function initBot(username) {
         }
         return originalWrite(name, data);
     };
+
+    bot._client.on('packet', (data, packetMeta) => {
+        if (packetMeta.name === 'kick_disconnect' || packetMeta.name === 'disconnect') {
+            console.error('[SERVER DISCONNECT PACKET RECEIVED]:', packetMeta.name, JSON.stringify(data));
+        }
+    });
 
     // Suppress PartialReadError for non-critical packets
     // Paper servers sometimes send packets that node-minecraft-protocol
@@ -147,6 +161,7 @@ export function initBot(username) {
 
     bot.once('login', () => {
         mc_version = bot.version;
+        console.log(`[mcdata] Bot logged in with Minecraft version: ${mc_version} (client version: ${bot._client?.version})`);
         mcdata = minecraftData(mc_version);
         Item = prismarine_items(mc_version);
         wrapLook();
