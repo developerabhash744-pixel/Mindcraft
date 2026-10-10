@@ -67,29 +67,12 @@ export function initBot(username) {
 
     const bot = createBot(options);
 
-    // Wrap bot.look and bot.lookAt to prevent NaN coordinates and out-of-range pitch
-    const origLook = bot.look.bind(bot);
-    bot.look = function(yaw, pitch, force) {
-        if (typeof yaw !== 'number' || !isFinite(yaw)) yaw = 0;
-        if (typeof pitch !== 'number' || !isFinite(pitch)) pitch = 0;
-        pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, pitch));
-        return origLook(yaw, pitch, force);
-    };
-
-    const origLookAt = bot.lookAt.bind(bot);
-    bot.lookAt = function(point, force) {
-        if (!point || !isFinite(point.x) || !isFinite(point.y) || !isFinite(point.z)) {
-            return Promise.resolve();
-        }
-        return origLookAt(point, force);
-    };
-
     // Sanitize move packets to avoid kicks on Paper/Spigot servers
     // Paper throws "Invalid player move packet received" if pitch is outside [-90, 90],
     // if coordinates/rotations are NaN/Infinite, or if packets are delayed/dropped.
     const originalWrite = bot._client.write.bind(bot._client);
     bot._client.write = function(name, data) {
-        if (data && (name === 'position' || name === 'position_look' || name === 'look' || name.startsWith('move_player'))) {
+        if (data && typeof data === 'object') {
             if (typeof data.x === 'number' && !isFinite(data.x)) data.x = 0;
             if (typeof data.y === 'number' && !isFinite(data.y)) data.y = 0;
             if (typeof data.z === 'number' && !isFinite(data.z)) data.z = 0;
@@ -138,10 +121,39 @@ export function initBot(username) {
         bot.acceptResourcePack();
     });
 
+    function wrapLook() {
+        if (typeof bot.look === 'function' && !bot._lookWrapped) {
+            bot._lookWrapped = true;
+            const origLook = bot.look.bind(bot);
+            bot.look = function(yaw, pitch, force) {
+                if (typeof yaw !== 'number' || !isFinite(yaw)) yaw = 0;
+                if (typeof pitch !== 'number' || !isFinite(pitch)) pitch = 0;
+                pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, pitch));
+                return origLook(yaw, pitch, force);
+            };
+        }
+
+        if (typeof bot.lookAt === 'function' && !bot._lookAtWrapped) {
+            bot._lookAtWrapped = true;
+            const origLookAt = bot.lookAt.bind(bot);
+            bot.lookAt = function(point, force) {
+                if (!point || !isFinite(point.x) || !isFinite(point.y) || !isFinite(point.z)) {
+                    return Promise.resolve();
+                }
+                return origLookAt(point, force);
+            };
+        }
+    }
+
     bot.once('login', () => {
         mc_version = bot.version;
         mcdata = minecraftData(mc_version);
         Item = prismarine_items(mc_version);
+        wrapLook();
+    });
+
+    bot.once('spawn', () => {
+        wrapLook();
     });
 
     return bot;
@@ -150,7 +162,7 @@ export function initBot(username) {
 export function isHuntable(mob) {
     if (!mob || !mob.name) return false;
     const animals = ['chicken', 'cow', 'llama', 'mooshroom', 'pig', 'rabbit', 'sheep'];
-    return animals.includes(mob.name.toLowerCase()) && !mob.metadata[16]; // metadata 16 is not baby
+    return animals.includes(mob.name.toLowerCase()) && !(mob.metadata && mob.metadata[16]); // metadata 16 is not baby
 }
 
 export function isHostile(mob) {
