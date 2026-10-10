@@ -47,11 +47,13 @@ export class Gemini {
         }
 
         const modelsToTry = [
-            this.model_name || "gemini-2.5-flash",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-1.5-flash"
-        ].filter((v, i, a) => a.indexOf(v) === i);
+            this.model_name,
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-8b",
+            "gemini-3.8-flash"
+        ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
 
         let lastErr = null;
         for (const model of modelsToTry) {
@@ -70,8 +72,9 @@ export class Gemini {
                 return response;
             } catch (err) {
                 lastErr = err;
-                if (String(err?.message || err).includes('429') || String(err?.message || err).includes('RESOURCE_EXHAUSTED')) {
-                    console.warn(`Model ${model} hit 429 quota, trying fallback model...`);
+                const errStr = String(err?.message || err);
+                if (errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED') || errStr.includes('404') || errStr.includes('NOT_FOUND') || errStr.includes('no longer available')) {
+                    console.warn(`Model ${model} unavailable (${errStr.substring(0, 100)}), trying fallback model...`);
                     continue;
                 }
                 throw err;
