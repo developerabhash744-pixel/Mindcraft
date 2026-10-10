@@ -70,12 +70,16 @@ export function initBot(username) {
     // Sanitize move packets to avoid kicks on Paper/Spigot servers
     // Paper throws "Invalid player move packet received" if pitch is outside [-90, 90],
     // if coordinates/rotations are NaN/Infinite, or if packets are delayed/dropped.
+    let lastMovementPacketTime = 0;
     const recentOutPackets = [];
     bot.getRecentOutPackets = () => recentOutPackets;
 
     const originalWrite = bot._client.write.bind(bot._client);
     bot._client.write = function(name, data) {
         if (data && typeof data === 'object') {
+            if (name.includes('position') || name.includes('look') || name.includes('flying')) {
+                lastMovementPacketTime = Date.now();
+            }
             if (name.includes('position') || name.includes('look') || name.includes('move') || name.includes('flying') || name.includes('teleport')) {
                 recentOutPackets.push({ name, data: JSON.parse(JSON.stringify(data)), time: Date.now() });
                 if (recentOutPackets.length > 10) recentOutPackets.shift();
@@ -158,6 +162,36 @@ export function initBot(username) {
             };
         }
     }
+
+    let tickEndLogged = false;
+    bot.on('physicsTick', () => {
+        if (!bot._client || bot._client.state !== 'play') return;
+
+        // Keep server movement tracker synchronized at 20 ticks/sec when idle
+        if (Date.now() - lastMovementPacketTime >= 45) {
+            lastMovementPacketTime = Date.now();
+            try {
+                bot._client.write('flying', { onGround: bot.entity?.onGround ?? true });
+            } catch (_) {}
+        }
+
+        // Send tick_end for modern Minecraft (1.21.2+ / GrimAC / Paper sync)
+        try {
+            bot._client.write('tick_end', {});
+            if (!tickEndLogged) {
+                console.log('[mcdata] tick_end packet active on physicsTick.');
+                tickEndLogged = true;
+            }
+        } catch (_) {
+            try {
+                bot._client.write('client_tick_end', {});
+                if (!tickEndLogged) {
+                    console.log('[mcdata] client_tick_end packet active on physicsTick.');
+                    tickEndLogged = true;
+                }
+            } catch (_) {}
+        }
+    });
 
     bot.once('login', () => {
         mc_version = bot.version;
