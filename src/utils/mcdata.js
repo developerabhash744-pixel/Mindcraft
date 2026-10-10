@@ -67,31 +67,21 @@ export function initBot(username) {
 
     const bot = createBot(options);
 
-    // Throttle position packets to avoid kicks on Paper/Spigot servers
-    // Paper enforces stricter packet rate limits than vanilla, causing ECONNRESET
-    // when mineflayer sends position updates faster than 50ms apart
-    let lastPositionUpdate = 0;
-    let pendingPositionPacket = null;
-    const POSITION_THROTTLE_MS = 50;
+    // Sanitize move packets to avoid kicks on Paper/Spigot servers
+    // Paper throws "Invalid player move packet received" if pitch is outside [-90, 90],
+    // if coordinates/rotations are NaN/Infinite, or if packets are delayed/dropped.
     const originalWrite = bot._client.write.bind(bot._client);
     bot._client.write = function(name, data) {
-        if (name === 'position' || name === 'position_look' || name === 'look') {
-            const now = Date.now();
-            if (now - lastPositionUpdate < POSITION_THROTTLE_MS) {
-                // Queue this packet so the last position update is never lost
-                if (!pendingPositionPacket) {
-                    pendingPositionPacket = setTimeout(() => {
-                        pendingPositionPacket = null;
-                        lastPositionUpdate = Date.now();
-                        originalWrite(name, data);
-                    }, POSITION_THROTTLE_MS - (now - lastPositionUpdate));
-                }
-                return;
+        if (data && (name === 'position' || name === 'position_look' || name === 'look' || name.startsWith('move_player'))) {
+            if (typeof data.x === 'number' && !isFinite(data.x)) data.x = 0;
+            if (typeof data.y === 'number' && !isFinite(data.y)) data.y = 0;
+            if (typeof data.z === 'number' && !isFinite(data.z)) data.z = 0;
+            if (typeof data.pitch === 'number') {
+                if (!isFinite(data.pitch)) data.pitch = 0;
+                else data.pitch = Math.max(-90, Math.min(90, data.pitch));
             }
-            lastPositionUpdate = now;
-            if (pendingPositionPacket) {
-                clearTimeout(pendingPositionPacket);
-                pendingPositionPacket = null;
+            if (typeof data.yaw === 'number' && !isFinite(data.yaw)) {
+                data.yaw = 0;
             }
         }
         return originalWrite(name, data);
