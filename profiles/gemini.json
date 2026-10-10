@@ -1,22 +1,22 @@
 {
     "name": "gemini",
 
-    "model": "gemini-2.0-flash",
+    "model": "gemini-3.5-flash",
 
     "speak_model": "google/gemini-2.5-flash-preview-tts/Kore",
 
     "cooldown": 2000,
 
     "modes": {
-        "self_preservation": false,
-        "unstuck": false,
+        "self_preservation": true,
+        "unstuck": true,
         "cowardice": false,
-        "self_defense": false,
+        "self_defense": true,
         "hunting": false,
         "item_collecting": false,
         "torch_placing": false,
         "elbow_room": false,
-        "idle_staring": false,
+        "idle_staring": true,
         "cheat": false
     }
 }
