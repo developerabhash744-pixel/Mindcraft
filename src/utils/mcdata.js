@@ -67,6 +67,23 @@ export function initBot(username) {
 
     const bot = createBot(options);
 
+    // Wrap bot.look and bot.lookAt to prevent NaN coordinates and out-of-range pitch
+    const origLook = bot.look.bind(bot);
+    bot.look = function(yaw, pitch, force) {
+        if (typeof yaw !== 'number' || !isFinite(yaw)) yaw = 0;
+        if (typeof pitch !== 'number' || !isFinite(pitch)) pitch = 0;
+        pitch = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, pitch));
+        return origLook(yaw, pitch, force);
+    };
+
+    const origLookAt = bot.lookAt.bind(bot);
+    bot.lookAt = function(point, force) {
+        if (!point || !isFinite(point.x) || !isFinite(point.y) || !isFinite(point.z)) {
+            return Promise.resolve();
+        }
+        return origLookAt(point, force);
+    };
+
     // Sanitize move packets to avoid kicks on Paper/Spigot servers
     // Paper throws "Invalid player move packet received" if pitch is outside [-90, 90],
     // if coordinates/rotations are NaN/Infinite, or if packets are delayed/dropped.
@@ -76,12 +93,20 @@ export function initBot(username) {
             if (typeof data.x === 'number' && !isFinite(data.x)) data.x = 0;
             if (typeof data.y === 'number' && !isFinite(data.y)) data.y = 0;
             if (typeof data.z === 'number' && !isFinite(data.z)) data.z = 0;
+            if (typeof data.feetY === 'number' && !isFinite(data.feetY)) data.feetY = 0;
             if (typeof data.pitch === 'number') {
                 if (!isFinite(data.pitch)) data.pitch = 0;
                 else data.pitch = Math.max(-90, Math.min(90, data.pitch));
             }
+            if (typeof data.xRot === 'number') {
+                if (!isFinite(data.xRot)) data.xRot = 0;
+                else data.xRot = Math.max(-90, Math.min(90, data.xRot));
+            }
             if (typeof data.yaw === 'number' && !isFinite(data.yaw)) {
                 data.yaw = 0;
+            }
+            if (typeof data.yRot === 'number' && !isFinite(data.yRot)) {
+                data.yRot = 0;
             }
         }
         return originalWrite(name, data);
