@@ -66,7 +66,7 @@ export class Agent {
         this.bot = initBot(this.name);
         
         // Connection Handler
-        const onDisconnect = (event, reason) => {
+        const onDisconnect = (type, reason) => {
             if (this._disconnectHandled) return;
             this._disconnectHandled = true;
 
