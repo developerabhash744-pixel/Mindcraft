@@ -1,7 +1,8 @@
 {
     "name": "gemini",
 
-    "model": "gemini-3.5-flash",
+    "model": "openai/auto",
+    "url": "https://router-7k9z.onrender.com/v1",
 
     "speak_model": "google/gemini-2.5-flash-preview-tts/Kore",
 

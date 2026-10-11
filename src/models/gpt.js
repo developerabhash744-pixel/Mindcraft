@@ -16,7 +16,13 @@ export class GPT {
         if (hasKey('OPENAI_ORG_ID'))
             config.organization = getKey('OPENAI_ORG_ID');
 
-        config.apiKey = getKey('OPENAI_API_KEY');
+        if (hasKey('OPENAI_API_KEY')) {
+            config.apiKey = getKey('OPENAI_API_KEY');
+        } else if (url) {
+            config.apiKey = 'router-key';
+        } else {
+            config.apiKey = getKey('OPENAI_API_KEY');
+        }
 
         this.openai = new OpenAIApi(config);
     }
@@ -44,7 +50,7 @@ export class GPT {
                     stop: stop_seq,
                     ...(this.params || {})
                 };
-                if (model.includes('o1') || model.includes('o3') || model.includes('5')) {
+                if (model.includes('o1') || model.includes('o3') || model.includes('5') || model === 'auto') {
                     delete pack.stop;
                 }
                 let completion = await this.openai.chat.completions.create(pack);
