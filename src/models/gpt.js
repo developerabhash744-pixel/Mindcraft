@@ -10,18 +10,20 @@ export class GPT {
         this.url = url; // store so that we know whether a custom URL has been set
 
         let config = {};
-        if (url)
+        if (url) {
             config.baseURL = url;
+        } else if (process.env.ROUTER_URL) {
+            this.url = process.env.ROUTER_URL;
+            config.baseURL = process.env.ROUTER_URL;
+        }
 
         if (hasKey('OPENAI_ORG_ID'))
             config.organization = getKey('OPENAI_ORG_ID');
 
         if (hasKey('OPENAI_API_KEY')) {
             config.apiKey = getKey('OPENAI_API_KEY');
-        } else if (url) {
-            config.apiKey = 'router-key';
         } else {
-            config.apiKey = getKey('OPENAI_API_KEY');
+            config.apiKey = 'router-key';
         }
 
         this.openai = new OpenAIApi(config);
